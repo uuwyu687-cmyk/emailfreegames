@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Sender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <main class="wrap">
+    <header class="hero">
+      <p class="brand">MailFlow</p>
+      <h1>Send emails from CSV</h1>
+      <p class="sub">Connect up to 3 Gmail accounts. CSV list auto-splits across them. If one fails, next takes over.</p>
+    </header>
+
+    <section class="panel">
+      <h2>1. Connect up to 3 Gmail accounts</h2>
+
+      <div class="account" data-acc="1">
+        <p class="acc-title">Account 1</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email1@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Bonus Offer" /></label>
+      </div>
+
+      <div class="account" data-acc="2">
+        <p class="acc-title">Account 2</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email2@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Bonus Offer" /></label>
+      </div>
+
+      <div class="account" data-acc="3">
+        <p class="acc-title">Account 3</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email3@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Bonus Offer" /></label>
+      </div>
+
+      <div class="row">
+        <button id="btnTest" type="button" class="btn secondary">Test All Connections</button>
+        <span id="connStatus" class="status"></span>
+      </div>
+      <p class="hint">
+        100 emails + 3 accounts = roughly 34 / 33 / 33 split. Agar 1 account fail ho jaye to baaki emails next account se chalti hain.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>2. Upload CSV (emails only)</h2>
+      <label class="filebox">
+        <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" />
+        <span id="fileLabel">Choose CSV / TXT file</span>
+      </label>
+      <div class="row">
+        <button id="btnParse" type="button" class="btn secondary">Load Emails</button>
+        <span id="csvStatus" class="status"></span>
+      </div>
+      <textarea id="emailsBox" rows="8" placeholder="Emails will appear here after upload..."></textarea>
+      <p id="splitPreview" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>3. Email Message</h2>
+      <label>
+        Subject
+        <input id="subject" type="text" />
+      </label>
+      <label>
+        Plain Text
+        <textarea id="textBody" rows="12"></textarea>
+      </label>
+      <details>
+        <summary>HTML body (auto-loaded)</summary>
+        <textarea id="htmlBody" rows="10"></textarea>
+      </details>
+      <div class="preview-box">
+        <p class="preview-title">Preview</p>
+        <iframe id="preview" title="Email preview"></iframe>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>4. Send</h2>
+      <div class="grid2">
+        <label>
+          Delay between emails (ms)
+          <input id="delayMs" type="number" min="1500" step="500" value="2500" />
+        </label>
+        <label>
+          Test send to (optional)
+          <input id="testTo" type="email" placeholder="your-test@gmail.com" />
+        </label>
+      </div>
+      <p class="hint">2.5s delay recommended. Test pehle Account 1 se jata hai.</p>
+      <div class="row">
+        <button id="btnTestSend" type="button" class="btn secondary">Send Test Email</button>
+        <button id="btnSendAll" type="button" class="btn primary">Send to All (Split 3)</button>
+      </div>
+      <div id="progress" class="progress hidden"></div>
+      <pre id="log" class="log"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
