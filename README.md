@@ -1,39 +1,58 @@
 # MailFlow — Simple Email Sender
 
 Gmail App Password se connect karke CSV ki emails par message bhejo.
+3 accounts support, auto-split, failover.
 
-## Run
+## Setup
 
 ```bash
-cd simple_email_sender
 npm install
+copy .env.example .env
+```
+
+`.env` mein apni emails + App Passwords likho:
+
+```env
+EMAIL_1=you1@gmail.com
+APP_PASSWORD_1=xxxx xxxx xxxx xxxx
+FROM_NAME_1=Support Team
+
+EMAIL_2=you2@gmail.com
+APP_PASSWORD_2=xxxx xxxx xxxx xxxx
+
+EMAIL_3=you3@gmail.com
+APP_PASSWORD_3=xxxx xxxx xxxx xxxx
+```
+
+Phir:
+
+```bash
 npm start
 ```
 
 Browser: http://localhost:5050
 
+Page open hote hi `.env` se accounts auto-fill ho jayenge — bar bar type karne ki zarurat nahi.
+
 ## Gmail App Password
 
 1. Google Account → Security
-2. 2-Step Verification ON karo
+2. 2-Step Verification ON
 3. App passwords → Mail → Generate
-4. 16-character password yahan paste karo
+4. 16-character password `.env` mein paste karo
 
 ## CSV format
-
-Column A mein emails (trailing comma OK):
 
 ```text
 user1@gmail.com,
 user2@gmail.com,
 ```
 
-Tool commas hata deta hai aur duplicates remove karta hai.
+Trailing commas OK. Duplicates auto-remove.
 
-## Spam kam karne ke tips
+## Tips
 
-- Pehle **Send Test Email** apne inbox par bhejo
-- Delay 2500ms+ rakho
-- Ek din mein bahut zyada emails mat bhejo (naye Gmail pe ~50–100/day safe)
-- Recipients ko pehle se permission hona chahiye
-- Subject/body mein ALL CAPS + bohot emojis spam filter trigger kar sakte hain
+- Pehle test email apne inbox par bhejo
+- Delay 4000ms rakho
+- Naye Gmail pe din mein zyada mat bhejo
+- `.env` kabhi GitHub pe commit mat karna

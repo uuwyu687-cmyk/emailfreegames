@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -10,6 +12,23 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+function getEnvAccounts() {
+  return [1, 2, 3]
+    .map((n) => ({
+      id: n,
+      email: String(process.env[`EMAIL_${n}`] || '').trim(),
+      appPassword: String(process.env[`APP_PASSWORD_${n}`] || '').replace(/\s+/g, ''),
+      fromName: String(process.env[`FROM_NAME_${n}`] || 'Support Team').trim() || 'Support Team',
+    }))
+    .filter((a) => a.email && a.appPassword);
+}
+
+function resolveAccounts(requestAccounts = []) {
+  const fromRequest = normalizeAccounts(requestAccounts);
+  if (fromRequest.length) return fromRequest;
+  return getEnvAccounts();
+}
 
 const DEFAULT_SUBJECT = 'A quick note about your welcome credit';
 
@@ -133,11 +152,33 @@ app.get('/api/defaults', (_req, res) => {
   });
 });
 
+app.get('/api/saved-accounts', (_req, res) => {
+  const accounts = [1, 2, 3].map((n) => ({
+    id: n,
+    email: String(process.env[`EMAIL_${n}`] || '').trim(),
+    appPassword: String(process.env[`APP_PASSWORD_${n}`] || '').trim(),
+    fromName: String(process.env[`FROM_NAME_${n}`] || 'Support Team').trim() || 'Support Team',
+    configured: Boolean(
+      String(process.env[`EMAIL_${n}`] || '').trim() &&
+        String(process.env[`APP_PASSWORD_${n}`] || '').trim()
+    ),
+  }));
+
+  res.json({
+    ok: true,
+    fromEnv: accounts.some((a) => a.configured),
+    accounts,
+  });
+});
+
 app.post('/api/test-connection', async (req, res) => {
   try {
-    const accounts = normalizeAccounts(req.body?.accounts || [req.body]);
+    const accounts = resolveAccounts(req.body?.accounts || [req.body]);
     if (!accounts.length) {
-      return res.status(400).json({ ok: false, error: 'At least 1 email + App Password required' });
+      return res.status(400).json({
+        ok: false,
+        error: 'At least 1 email + App Password required (UI ya .env)',
+      });
     }
 
     const results = [];
@@ -200,13 +241,16 @@ app.post('/api/send', async (req, res) => {
       testTo = '',
     } = req.body || {};
 
-    let accountList = normalizeAccounts(accounts);
+    let accountList = resolveAccounts(accounts);
     if (!accountList.length && email && appPassword) {
       accountList = normalizeAccounts([{ email, appPassword, fromName }]);
     }
 
     if (!accountList.length) {
-      return res.status(400).json({ ok: false, error: 'At least 1 Gmail account required' });
+      return res.status(400).json({
+        ok: false,
+        error: 'At least 1 Gmail account required (UI ya .env file)',
+      });
     }
 
     let recipients = extractEmails((emails || []).join('\n'));

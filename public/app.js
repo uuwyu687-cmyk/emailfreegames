@@ -67,6 +67,30 @@ function updateSplitPreview() {
     accounts.map((a, i) => `${a.email.split('@')[0]} → ${sizes[i]}`).join(' · ');
 }
 
+async function loadSavedAccounts() {
+  try {
+    const res = await fetch('/api/saved-accounts');
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const boxes = [...document.querySelectorAll('.account')];
+    (data.accounts || []).forEach((acc, i) => {
+      const box = boxes[i];
+      if (!box) return;
+      if (acc.email) box.querySelector('.acc-email').value = acc.email;
+      if (acc.appPassword) box.querySelector('.acc-pass').value = acc.appPassword;
+      if (acc.fromName) box.querySelector('.acc-from').value = acc.fromName;
+    });
+
+    if (data.fromEnv) {
+      setStatus($('connStatus'), '.env se accounts load ho gaye', 'ok');
+    }
+    updateSplitPreview();
+  } catch (_err) {
+    // ignore
+  }
+}
+
 async function loadDefaults() {
   const res = await fetch('/api/defaults');
   const data = await res.json();
@@ -74,6 +98,7 @@ async function loadDefaults() {
   textEl.value = data.text;
   htmlEl.value = data.html;
   updatePreview();
+  await loadSavedAccounts();
 }
 
 $('btnTest').addEventListener('click', async () => {
