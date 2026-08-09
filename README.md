@@ -15,7 +15,7 @@ copy .env.example .env
 ```env
 EMAIL_1=you1@gmail.com
 APP_PASSWORD_1=xxxx xxxx xxxx xxxx
-FROM_NAME_1=Support Team
+FROM_NAME_1=Daniel
 
 EMAIL_2=you2@gmail.com
 APP_PASSWORD_2=xxxx xxxx xxxx xxxx

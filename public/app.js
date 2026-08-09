@@ -39,7 +39,7 @@ function getAccounts() {
     .map((box) => ({
       email: box.querySelector('.acc-email').value.trim(),
       appPassword: box.querySelector('.acc-pass').value.trim(),
-      fromName: box.querySelector('.acc-from').value.trim() || 'Support Team',
+      fromName: box.querySelector('.acc-from').value.trim() || 'Daniel',
     }))
     .filter((a) => a.email && a.appPassword);
 }

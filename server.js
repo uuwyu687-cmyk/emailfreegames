@@ -19,7 +19,7 @@ function getEnvAccounts() {
       id: n,
       email: String(process.env[`EMAIL_${n}`] || '').trim(),
       appPassword: String(process.env[`APP_PASSWORD_${n}`] || '').replace(/\s+/g, ''),
-      fromName: String(process.env[`FROM_NAME_${n}`] || 'Support Team').trim() || 'Support Team',
+      fromName: String(process.env[`FROM_NAME_${n}`] || 'Daniel').trim() || 'Daniel',
     }))
     .filter((a) => a.email && a.appPassword);
 }
@@ -30,50 +30,142 @@ function resolveAccounts(requestAccounts = []) {
   return getEnvAccounts();
 }
 
-const DEFAULT_SUBJECT = 'quick question';
+// Promo chat link (set in .env). Keep copy soft — hard "bonus/free/$" words increase Spam.
+const ALLOW_LINKS = String(process.env.ALLOW_LINKS || 'true').toLowerCase() !== 'false';
+const LINK = String(
+  process.env.MESSAGE_LINK || 'https://m.me/1212398091953726'
+).trim();
+
+// Natural subjects only — NEVER put links / messenger / promo words here.
+const DEFAULT_SUBJECT = 'Thought of you earlier';
 
 const SUBJECT_VARIANTS = [
-  'quick question',
-  'got a minute?',
-  'small update for you',
-  'hey {{name}}',
-  'following up',
+  'Thought of you earlier',
+  'Did my last note reach you?',
+  'Quick note when you have a minute',
+  'Wanted to reconnect',
+  'Following up from earlier',
+  'Are you around today?',
+  'One small thing',
+  'Hope this finds you well',
 ];
 
-const DEFAULT_BODY_TEXT = `Hey {{name}},
+// Soft promo bodies — link ONLY in body text.
+const BODY_VARIANTS = [
+  `Hi{{namePart}},
 
-Just wanted to check in quickly.
+Hope you are doing well. I wanted to reconnect and make this easier for both of us.
 
-I set something aside for you earlier and can turn it on if you still want it. If yes, reply here or ping me on Messenger and I will handle the rest:
+Whenever you are free, please message me on this chat and I will take it from there:
 
-https://m.me/1212398091953726
+{{link}}
 
-No rush either way.
+Thanks,
+{{fromName}}`,
 
-{{fromName}}`;
+  `Hi{{namePart}},
+
+Just a short note. It is simpler to continue on chat instead of long emails.
+
+You can reach me here:
+{{link}}
+
+I will reply as soon as I see your message.
+
+{{fromName}}`,
+
+  `Hi{{namePart}},
+
+I am available if you still want help with what we discussed.
+
+Message me here when you can:
+{{link}}
+
+Looking forward to hearing from you.
+
+{{fromName}}`,
+];
+
+const DEFAULT_BODY_TEXT = BODY_VARIANTS[0];
 
 // Kept for optional use; plain-text-only is default for better inbox placement.
 const DEFAULT_BODY_HTML = '';
 
-function personalize(template, { to, fromName }) {
-  const name = String(to || '')
-    .split('@')[0]
-    .replace(/[._0-9]+/g, ' ')
-    .trim()
-    .split(/\s+/)[0];
-  const niceName = name ? name.charAt(0).toUpperCase() + name.slice(1) : 'there';
+function cleanFromName(name, email) {
+  const bad = /^(support\s*team|bonus\s*offer|admin|noreply|no-reply|freegameplay)$/i;
+  const n = String(name || '').trim();
+  if (n && !bad.test(n)) return n;
+  return 'Daniel';
+}
+
+function recipientFirstName(to) {
+  const raw = String(to || '').split('@')[0] || '';
+  const name = raw.replace(/[._0-9]+/g, ' ').trim().split(/\s+/)[0] || '';
+  // Skip gamer/spammy local-parts — they look automated
+  if (!name || name.length < 2 || name.length > 10) return '';
+  if (/pubg|free|game|hack|bonus|win|money|xxx|admin|test/i.test(name)) return '';
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+
+function fillVars(template, { to, fromName }) {
+  const niceName = recipientFirstName(to);
+  const namePart = niceName ? ` ${niceName}` : '';
   return String(template || '')
-    .replace(/\{\{name\}\}/g, niceName)
-    .replace(/\{\{fromName\}\}/g, fromName || 'Ryan');
+    .replace(/\{\{namePart\}\}/g, namePart)
+    .replace(/\{\{name\}\}/g, niceName || 'there')
+    .replace(/\{\{fromName\}\}/g, fromName || 'Daniel')
+    .replace(/\{\{link\}\}/g, LINK);
+}
+
+function stripUrls(text) {
+  return String(text || '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\bm\.me\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function pickSubject(baseSubject, vars) {
   const raw = String(baseSubject || '').trim();
-  if (raw && !SUBJECT_VARIANTS.includes(raw) && raw !== DEFAULT_SUBJECT) {
-    return personalize(raw, vars);
+  const burnedSubject =
+    /^hey\s+/i.test(raw) ||
+    /messenger|m\.me|https?:\/\//i.test(raw) ||
+    /check this when free|finish what we started|quick question|got a minute|free \$|200%|bonus|continue on chat|better on messenger/i.test(
+      raw
+    );
+
+  let subject;
+  if (raw && !burnedSubject && !SUBJECT_VARIANTS.includes(raw) && raw !== DEFAULT_SUBJECT) {
+    subject = fillVars(raw, vars);
+  } else {
+    subject = fillVars(SUBJECT_VARIANTS[Math.floor(Math.random() * SUBJECT_VARIANTS.length)], vars);
   }
-  const chosen = SUBJECT_VARIANTS[Math.floor(Math.random() * SUBJECT_VARIANTS.length)];
-  return personalize(chosen, vars);
+
+  // Hard guarantee: subject never contains a link
+  subject = stripUrls(subject);
+  if (!subject) subject = DEFAULT_SUBJECT;
+  return subject;
+}
+
+function pickBody(baseText, vars) {
+  const raw = String(baseText || '').trim();
+  const burned =
+    /set something aside|ping me on Messenger|No rush either way|finish what we started|account setup pending|FREE \$|200%|First Deposit|Claim Your Bonus|can we continue on chat/i.test(
+      raw
+    );
+  let out;
+  if (raw && !burned) {
+    out = fillVars(raw, vars);
+  } else {
+    const chosen = BODY_VARIANTS[Math.floor(Math.random() * BODY_VARIANTS.length)];
+    out = fillVars(chosen, vars);
+  }
+  if (!ALLOW_LINKS) {
+    out = out.replace(/https?:\/\/\S+/gi, '').replace(/\n{3,}/g, '\n\n').trim();
+  } else if (LINK && !out.includes(LINK)) {
+    out += `\n\nYou can reach me here:\n${LINK}\n`;
+  }
+  return out;
 }
 
 function sleep(ms) {
@@ -92,7 +184,7 @@ function normalizeAccounts(accounts = []) {
       id: idx + 1,
       email: String(a.email || '').trim(),
       appPassword: String(a.appPassword || '').replace(/\s+/g, ''),
-      fromName: String(a.fromName || 'Support Team').trim() || 'Support Team',
+      fromName: cleanFromName(a.fromName, a.email),
     }))
     .filter((a) => a.email && a.appPassword);
 }
@@ -131,7 +223,7 @@ app.get('/api/saved-accounts', (_req, res) => {
     id: n,
     email: String(process.env[`EMAIL_${n}`] || '').trim(),
     appPassword: String(process.env[`APP_PASSWORD_${n}`] || '').trim(),
-    fromName: String(process.env[`FROM_NAME_${n}`] || 'Support Team').trim() || 'Support Team',
+    fromName: String(process.env[`FROM_NAME_${n}`] || 'Daniel').trim() || 'Daniel',
     configured: Boolean(
       String(process.env[`EMAIL_${n}`] || '').trim() &&
         String(process.env[`APP_PASSWORD_${n}`] || '').trim()
@@ -206,7 +298,7 @@ app.post('/api/send', async (req, res) => {
       accounts = [],
       email,
       appPassword,
-      fromName = 'Support Team',
+      fromName = 'Daniel',
       subject = DEFAULT_SUBJECT,
       text = DEFAULT_BODY_TEXT,
       html = '',
@@ -294,12 +386,13 @@ app.post('/api/send', async (req, res) => {
         if (account.disabled) continue;
 
         try {
-          const vars = { to: job.to, fromName: account.fromName };
-          const finalText = personalize(text, vars);
+          const fromName = cleanFromName(account.fromName, account.email);
+          const vars = { to: job.to, fromName };
+          const finalText = pickBody(text, vars);
           const finalSubject = pickSubject(subject, vars);
 
           const mail = {
-            from: `${account.fromName} <${account.email}>`,
+            from: `${fromName} <${account.email}>`,
             to: job.to,
             replyTo: account.email,
             subject: finalSubject,
@@ -309,7 +402,7 @@ app.post('/api/send', async (req, res) => {
 
           // Plain text only lands in inbox more often than HTML promo templates.
           if (!useTextOnly && html && String(html).trim()) {
-            mail.html = personalize(html, vars);
+            mail.html = fillVars(html, vars);
           }
 
           const info = await account.transporter.sendMail(mail);
