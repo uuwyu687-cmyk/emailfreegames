@@ -82,13 +82,17 @@
         Plain Text
         <textarea id="textBody" rows="12"></textarea>
       </label>
+      <label class="checkline">
+        <input id="textOnly" type="checkbox" checked />
+        Plain text only (inbox ke liye strongly recommended — HTML mat bhejo)
+      </label>
       <details>
-        <summary>HTML body (auto-loaded)</summary>
-        <textarea id="htmlBody" rows="10"></textarea>
+        <summary>HTML body (optional, usually leave empty)</summary>
+        <textarea id="htmlBody" rows="8" placeholder="Leave empty for better inbox delivery"></textarea>
       </details>
       <div class="preview-box">
-        <p class="preview-title">Preview</p>
-        <iframe id="preview" title="Email preview"></iframe>
+        <p class="preview-title">Text preview</p>
+        <pre id="textPreview" class="text-preview"></pre>
       </div>
     </section>
 
@@ -97,14 +101,14 @@
       <div class="grid2">
         <label>
           Delay between emails (ms)
-          <input id="delayMs" type="number" min="3000" step="500" value="4000" />
+          <input id="delayMs" type="number" min="5000" step="1000" value="8000" />
         </label>
         <label>
           Test send to (optional)
           <input id="testTo" type="email" placeholder="your-test@gmail.com" />
         </label>
       </div>
-      <p class="hint">4s delay better for inbox. Pehle test bhejo, spam se Inbox me move karo (helps reputation).</p>
+      <p class="hint">8s+ delay + plain text. Pehle 1 test bhejo. Agar spam aaye to Not spam mark karo. Ek din mein 20–30 se zyada mat bhejo.</p>
       <div class="row">
         <button id="btnTestSend" type="button" class="btn secondary">Send Test Email</button>
         <button id="btnSendAll" type="button" class="btn primary">Send to All (Split 3)</button>

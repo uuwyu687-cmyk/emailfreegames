@@ -228,6 +228,31 @@ summary {
   background: #fff;
 }
 
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.checkline input {
+  width: auto;
+}
+
+.text-preview {
+  margin: 0;
+  padding: 14px 16px;
+  min-height: 160px;
+  white-space: pre-wrap;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #222;
+  background: #fff;
+}
+
 .progress {
   margin-top: 12px;
   padding: 10px 12px;

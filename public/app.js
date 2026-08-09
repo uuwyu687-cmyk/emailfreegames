@@ -7,6 +7,8 @@ const emailsBox = $('emailsBox');
 const delayEl = $('delayMs');
 const testToEl = $('testTo');
 const preview = $('preview');
+const textPreview = $('textPreview');
+const textOnlyEl = $('textOnly');
 const logEl = $('log');
 const progressEl = $('progress');
 const splitPreview = $('splitPreview');
@@ -22,7 +24,14 @@ function log(msg) {
 }
 
 function updatePreview() {
-  preview.srcdoc = htmlEl.value || '<p style="padding:16px;font-family:sans-serif;color:#666;">No HTML</p>';
+  if (textPreview) textPreview.textContent = textEl.value || '';
+  if (preview) {
+    preview.srcdoc = htmlEl.value
+      ? htmlEl.value
+      : `<pre style="padding:16px;font-family:Georgia,serif;white-space:pre-wrap;">${(textEl.value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')}</pre>`;
+  }
 }
 
 function getAccounts() {
@@ -96,7 +105,8 @@ async function loadDefaults() {
   const data = await res.json();
   subjectEl.value = data.subject;
   textEl.value = data.text;
-  htmlEl.value = data.html;
+  htmlEl.value = data.html || '';
+  if (textOnlyEl) textOnlyEl.checked = data.textOnly !== false;
   updatePreview();
   await loadSavedAccounts();
 }
@@ -155,6 +165,7 @@ $('btnParse').addEventListener('click', async () => {
 });
 
 htmlEl.addEventListener('input', updatePreview);
+textEl.addEventListener('input', updatePreview);
 emailsBox.addEventListener('input', updateSplitPreview);
 document.querySelectorAll('.acc-email, .acc-pass').forEach((el) => {
   el.addEventListener('input', updateSplitPreview);
@@ -189,9 +200,10 @@ async function sendEmails({ testOnly }) {
         accounts,
         subject: subjectEl.value.trim(),
         text: textEl.value,
-        html: htmlEl.value,
+        html: textOnlyEl?.checked ? '' : htmlEl.value,
+        textOnly: textOnlyEl ? textOnlyEl.checked : true,
         emails: unique,
-        delayMs: Number(delayEl.value) || 4000,
+        delayMs: Number(delayEl.value) || 8000,
         testTo: testOnly ? testToEl.value.trim() : '',
       }),
     });

@@ -30,40 +30,30 @@ function resolveAccounts(requestAccounts = []) {
   return getEnvAccounts();
 }
 
-const DEFAULT_SUBJECT = 'Following up on your account';
+const DEFAULT_SUBJECT = 'quick question';
 
-const DEFAULT_BODY_TEXT = `Hi {{name}},
+const SUBJECT_VARIANTS = [
+  'quick question',
+  'got a minute?',
+  'small update for you',
+  'hey {{name}}',
+  'following up',
+];
 
-Hope you are doing well. I am writing regarding the starter credit on your account.
+const DEFAULT_BODY_TEXT = `Hey {{name}},
 
-There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.
+Just wanted to check in quickly.
 
-If you want me to enable it for you, just reply to this email or message me here:
+I set something aside for you earlier and can turn it on if you still want it. If yes, reply here or ping me on Messenger and I will handle the rest:
+
 https://m.me/1212398091953726
 
-Happy to help either way.
+No rush either way.
 
-Best,
 {{fromName}}`;
 
-const DEFAULT_BODY_HTML = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
-<body style="margin:0;padding:0;background:#ffffff;">
-  <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:560px;padding:20px;">
-    <p style="margin:0 0 14px;">Hi {{name}},</p>
-    <p style="margin:0 0 14px;">Hope you are doing well. I am writing regarding the starter credit on your account.</p>
-    <p style="margin:0 0 14px;">There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.</p>
-    <p style="margin:0 0 14px;">If you want me to enable it for you, just reply to this email or message me here:<br />
-      <a href="https://m.me/1212398091953726" style="color:#1a73e8;">https://m.me/1212398091953726</a>
-    </p>
-    <p style="margin:0 0 14px;">Happy to help either way.</p>
-    <p style="margin:0;">Best,<br />{{fromName}}</p>
-  </div>
-</body>
-</html>
-`.trim();
+// Kept for optional use; plain-text-only is default for better inbox placement.
+const DEFAULT_BODY_HTML = '';
 
 function personalize(template, { to, fromName }) {
   const name = String(to || '')
@@ -75,6 +65,15 @@ function personalize(template, { to, fromName }) {
   return String(template || '')
     .replace(/\{\{name\}\}/g, niceName)
     .replace(/\{\{fromName\}\}/g, fromName || 'Ryan');
+}
+
+function pickSubject(baseSubject, vars) {
+  const raw = String(baseSubject || '').trim();
+  if (raw && !SUBJECT_VARIANTS.includes(raw) && raw !== DEFAULT_SUBJECT) {
+    return personalize(raw, vars);
+  }
+  const chosen = SUBJECT_VARIANTS[Math.floor(Math.random() * SUBJECT_VARIANTS.length)];
+  return personalize(chosen, vars);
 }
 
 function sleep(ms) {
@@ -123,6 +122,7 @@ app.get('/api/defaults', (_req, res) => {
     subject: DEFAULT_SUBJECT,
     text: DEFAULT_BODY_TEXT,
     html: DEFAULT_BODY_HTML,
+    textOnly: true,
   });
 });
 
@@ -209,10 +209,11 @@ app.post('/api/send', async (req, res) => {
       fromName = 'Support Team',
       subject = DEFAULT_SUBJECT,
       text = DEFAULT_BODY_TEXT,
-      html = DEFAULT_BODY_HTML,
+      html = '',
       emails = [],
-      delayMs = 2500,
+      delayMs = 8000,
       testTo = '',
+      textOnly = true,
     } = req.body || {};
 
     let accountList = resolveAccounts(accounts);
@@ -262,7 +263,8 @@ app.post('/api/send', async (req, res) => {
       });
     }
 
-    const safeDelay = Math.max(3000, Number(delayMs) || 4000);
+    const safeDelay = Math.max(5000, Number(delayMs) || 8000);
+    const useTextOnly = textOnly !== false;
     const results = [];
 
     // Even split: 100 emails / 3 accounts => ~34, 33, 33
@@ -294,27 +296,35 @@ app.post('/api/send', async (req, res) => {
         try {
           const vars = { to: job.to, fromName: account.fromName };
           const finalText = personalize(text, vars);
-          const finalHtml = personalize(html, vars);
-          const finalSubject = personalize(subject, vars);
+          const finalSubject = pickSubject(subject, vars);
 
-          const info = await account.transporter.sendMail({
-            from: `"${account.fromName}" <${account.email}>`,
+          const mail = {
+            from: `${account.fromName} <${account.email}>`,
             to: job.to,
             replyTo: account.email,
             subject: finalSubject,
             text: finalText,
-            html: finalHtml,
             priority: 'normal',
-          });
+          };
+
+          // Plain text only lands in inbox more often than HTML promo templates.
+          if (!useTextOnly && html && String(html).trim()) {
+            mail.html = personalize(html, vars);
+          }
+
+          const info = await account.transporter.sendMail(mail);
           results.push({
             to: job.to,
             ok: true,
             id: info.messageId,
             from: account.email,
+            subject: finalSubject,
             failover: idx !== job.preferred,
           });
           delivered = true;
-          await sleep(safeDelay);
+          // Random jitter so sends look less automated
+          const jitter = 1000 + Math.floor(Math.random() * 4000);
+          await sleep(safeDelay + jitter);
           break;
         } catch (err) {
           const msg = err.message || 'Send failed';

@@ -12,34 +12,20 @@ if (!email || !pass) {
 }
 
 const marker = `inbox-check-${Date.now()}`;
-const subject = `Following up on your account (${marker})`;
+const subject = `quick question`;
+const text = `Hey there,
 
-const text = `Hi there,
+Just wanted to check in quickly.
 
-Hope you are doing well. I am writing regarding the starter credit on your account.
+I set something aside for you earlier and can turn it on if you still want it. If yes, reply here or ping me on Messenger and I will handle the rest:
 
-There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.
-
-If you want me to enable it for you, just reply to this email or message me here:
 https://m.me/1212398091953726
 
-Happy to help either way.
+No rush either way.
 
-Best,
 ${fromName}
 
 Ref: ${marker}`;
-
-const html = `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;">
-<p>Hi there,</p>
-<p>Hope you are doing well. I am writing regarding the starter credit on your account.</p>
-<p>There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.</p>
-<p>If you want me to enable it for you, just reply to this email or message me here:<br>
-<a href="https://m.me/1212398091953726">https://m.me/1212398091953726</a></p>
-<p>Happy to help either way.</p>
-<p>Best,<br>${fromName}</p>
-<p style="color:#999;font-size:12px;">Ref: ${marker}</p>
-</body></html>`;
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -49,16 +35,17 @@ async function findInMailbox(client, mailbox) {
   try {
     const lock = await client.getMailboxLock(mailbox);
     try {
-      const uids = await client.search({ subject: marker });
-      if (!uids || !uids.length) return null;
-      const uid = uids[uids.length - 1];
-      const msg = await client.fetchOne(uid, { envelope: true });
-      return {
-        mailbox,
-        uid,
-        subject: msg.envelope?.subject || '',
-        date: msg.envelope?.date,
-      };
+      const exists = client.mailbox.exists || 0;
+      if (!exists) return null;
+      const start = Math.max(1, exists - 40);
+      for await (const msg of client.fetch(`${start}:*`, { envelope: true, source: true, uid: true })) {
+        const subjectText = msg.envelope?.subject || '';
+        const raw = msg.source ? msg.source.toString('utf8') : '';
+        if (raw.includes(marker) || subjectText.includes(marker)) {
+          return { mailbox, uid: msg.uid, subject: subjectText, date: msg.envelope?.date };
+        }
+      }
+      return null;
     } finally {
       lock.release();
     }
@@ -68,7 +55,7 @@ async function findInMailbox(client, mailbox) {
 }
 
 async function main() {
-  console.log('1) Connecting SMTP...');
+  console.log('1) SMTP connect...');
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -76,24 +63,22 @@ async function main() {
     auth: { user: email, pass },
   });
   await transporter.verify();
-  console.log('   SMTP OK:', email);
 
-  console.log('2) Sending test email to self...');
+  console.log('2) Sending PLAIN TEXT test to self...');
   const info = await transporter.sendMail({
-    from: `"${fromName}" <${email}>`,
+    from: `${fromName} <${email}>`,
     to: email,
     replyTo: email,
     subject,
     text,
-    html,
-    priority: 'normal',
   });
-  console.log('   Sent messageId:', info.messageId);
+  console.log('   messageId:', info.messageId);
+  console.log('   response:', info.response);
 
-  console.log('3) Waiting 20s for Gmail to place the message...');
-  await sleep(20000);
+  console.log('3) Waiting 25s...');
+  await sleep(25000);
 
-  console.log('4) Checking IMAP folders...');
+  console.log('4) IMAP check...');
   const client = new ImapFlow({
     host: 'imap.gmail.com',
     port: 993,
@@ -101,40 +86,40 @@ async function main() {
     auth: { user: email, pass },
     logger: false,
   });
-
   await client.connect();
 
-  const folders = ['INBOX', '[Gmail]/Spam', '[Gmail]/All Mail'];
-  const found = [];
-  for (const folder of folders) {
-    const hit = await findInMailbox(client, folder);
-    if (hit && hit.uid) found.push(hit);
-    else if (hit && hit.error) console.log(`   ${folder}: ${hit.error}`);
-  }
+  const listed = await client.list();
+  const paths = listed.map((b) => b.path);
+  const targets = ['INBOX', ...paths.filter((p) => /Spam|Junk|Sent|All Mail/i.test(p))];
 
+  const found = [];
+  for (const folder of [...new Set(targets)]) {
+    const hit = await findInMailbox(client, folder);
+    if (hit?.uid) found.push(hit);
+    else if (hit?.error) console.log(`   ${folder}: ${hit.error}`);
+  }
   await client.logout();
 
   if (!found.length) {
-    console.log('\nRESULT: Message not found yet in INBOX / Spam / All Mail.');
-    console.log('Wait 1 minute and run: node verify-inbox.js');
+    console.log('\nRESULT: NOT FOUND (storage/quota issue likely — mail accepted but not stored)');
     process.exit(2);
   }
-
-  const inInbox = found.some((f) => f.mailbox === 'INBOX');
-  const inSpam = found.some((f) => /spam/i.test(f.mailbox));
 
   console.log('\nFound in:');
   found.forEach((f) => console.log(` - ${f.mailbox} | ${f.subject}`));
 
+  const inInbox = found.some((f) => f.mailbox === 'INBOX');
+  const inSpam = found.some((f) => /spam|junk/i.test(f.mailbox));
+
   if (inInbox && !inSpam) {
-    console.log('\nRESULT: INBOX ✅ (not in Spam)');
+    console.log('\nRESULT: INBOX ✅');
     process.exit(0);
   }
   if (inSpam) {
     console.log('\nRESULT: SPAM ❌');
     process.exit(1);
   }
-  console.log('\nRESULT: Found in All Mail only (check Gmail tabs/filters).');
+  console.log('\nRESULT: other folder only');
   process.exit(3);
 }
 
