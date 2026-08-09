@@ -30,7 +30,7 @@ function getAccounts() {
     .map((box) => ({
       email: box.querySelector('.acc-email').value.trim(),
       appPassword: box.querySelector('.acc-pass').value.trim(),
-      fromName: box.querySelector('.acc-from').value.trim() || 'Bonus Offer',
+      fromName: box.querySelector('.acc-from').value.trim() || 'Support Team',
     }))
     .filter((a) => a.email && a.appPassword);
 }
@@ -166,7 +166,7 @@ async function sendEmails({ testOnly }) {
         text: textEl.value,
         html: htmlEl.value,
         emails: unique,
-        delayMs: Number(delayEl.value) || 2500,
+        delayMs: Number(delayEl.value) || 4000,
         testTo: testOnly ? testToEl.value.trim() : '',
       }),
     });

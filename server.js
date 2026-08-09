@@ -11,32 +11,21 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DEFAULT_SUBJECT = 'Your Free $10 Play + 200% First Deposit Bonus Is Waiting';
+const DEFAULT_SUBJECT = 'A quick note about your welcome credit';
 
-const DEFAULT_BODY_TEXT = `Hello,
+const DEFAULT_BODY_TEXT = `Hi,
 
-We have a special welcome bonus ready for you.
+I wanted to share a short update about your account welcome credit.
 
-SPECIAL BONUS DETAILS
---------------------
-1) FREE $10 PLAY
-   You get $10 play credit ready to use — no complicated steps. Claim it and start enjoying right away.
+You currently have a $10 starter credit available. After your first top-up, you can also receive matching support that doubles the value of that first amount (2x).
 
-2) 200% FIRST DEPOSIT BONUS
-   When you make your first deposit, you can unlock a 200% bonus on that deposit. That means your first top-up gets a much bigger boost so you can play with more value from day one.
-
-HOW TO CLAIM
-------------
-Just tap the link below and follow the short steps in chat. Our team will help you activate the bonus quickly:
-
+If you would like help turning this on, reply here or message us on Messenger:
 https://m.me/1212398091953726
 
-This offer is limited, so claim it while it is still available.
+We are happy to walk you through it step by step.
 
-If you already claimed it, you can ignore this message.
-
-Thank you,
-Bonus Support Team`;
+Thanks,
+Support Team`;
 
 const DEFAULT_BODY_HTML = `
 <!DOCTYPE html>
@@ -44,81 +33,46 @@ const DEFAULT_BODY_HTML = `
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Special Bonus</title>
+  <title>Welcome credit</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f6f8;font-family:Segoe UI,Arial,sans-serif;color:#1a1a1a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 12px;">
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Georgia,'Times New Roman',serif;color:#222222;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f5;padding:28px 14px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e6e6e6;">
           <tr>
-            <td style="background:#111827;padding:24px 28px;text-align:center;">
-              <p style="margin:0;font-size:13px;letter-spacing:1.5px;color:#fbbf24;text-transform:uppercase;">Special Welcome Bonus</p>
-              <h1 style="margin:10px 0 0;font-size:26px;line-height:1.3;color:#ffffff;font-weight:700;">Free $10 Play Ready for You</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:28px;">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#374151;">
-                Hello,
+            <td style="padding:28px 32px 8px;">
+              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                Hi,
               </p>
-              <p style="margin:0 0 18px;font-size:16px;line-height:1.65;color:#374151;">
-                We saved a special welcome package for you. Here is exactly what you get and how to claim it.
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                I wanted to share a short update about your account welcome credit.
               </p>
-
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-                <tr>
-                  <td style="padding:16px 18px;">
-                    <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#111827;">1) Free $10 Play</p>
-                    <p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">
-                      Get <strong>$10 play credit</strong> ready to use. No long process — claim it and start right away.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-                <tr>
-                  <td style="padding:16px 18px;">
-                    <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#111827;">2) 200% First Deposit Bonus</p>
-                    <p style="margin:0;font-size:14px;line-height:1.6;color:#4b5563;">
-                      On your first deposit, unlock a <strong>200% bonus</strong>. Your first top-up gets a much bigger boost so you can enjoy more value from day one.
-                    </p>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:0 0 10px;font-size:15px;font-weight:700;color:#111827;">How to claim</p>
-              <p style="margin:0 0 22px;font-size:15px;line-height:1.65;color:#4b5563;">
-                Tap the button below and follow the short steps in chat. Our team will help you activate the bonus quickly. This offer is limited, so claim it while it is still available.
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                You currently have a <strong>$10 starter credit</strong> available. After your first top-up, you can also receive matching support that doubles the value of that first amount (2x).
               </p>
-
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 8px;">
-                <tr>
-                  <td align="center" style="border-radius:8px;background:#2563eb;">
-                    <a href="https://m.me/1212398091953726"
-                       style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
-                      Claim Your Bonus Now
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-              <p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;">
-                Or open this link:<br />
-                <a href="https://m.me/1212398091953726" style="color:#2563eb;word-break:break-all;">https://m.me/1212398091953726</a>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                If you would like help turning this on, message us here:
               </p>
-
-              <p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#6b7280;">
-                If you already claimed this offer, you can ignore this email.
+              <p style="margin:0 0 22px;font-size:16px;line-height:1.7;font-family:Georgia,'Times New Roman',serif;">
+                <a href="https://m.me/1212398091953726" style="color:#1a56db;text-decoration:underline;">
+                  https://m.me/1212398091953726
+                </a>
+              </p>
+              <p style="margin:0 0 22px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                We are happy to walk you through it step by step.
+              </p>
+              <p style="margin:0;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
+                Thanks,<br />
+                Support Team
               </p>
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 28px 22px;border-top:1px solid #e5e7eb;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#9ca3af;">
-                You received this email because you are on our contact list.
-                If this was sent by mistake, please ignore it.
+            <td style="padding:18px 32px 26px;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#888888;font-family:Arial,sans-serif;">
+                You are receiving this because you are on our contact list.
+                If this does not apply to you, feel free to ignore it.
               </p>
             </td>
           </tr>
@@ -146,7 +100,7 @@ function normalizeAccounts(accounts = []) {
       id: idx + 1,
       email: String(a.email || '').trim(),
       appPassword: String(a.appPassword || '').replace(/\s+/g, ''),
-      fromName: String(a.fromName || 'Bonus Offer').trim() || 'Bonus Offer',
+      fromName: String(a.fromName || 'Support Team').trim() || 'Support Team',
     }))
     .filter((a) => a.email && a.appPassword);
 }
@@ -237,7 +191,7 @@ app.post('/api/send', async (req, res) => {
       accounts = [],
       email,
       appPassword,
-      fromName = 'Bonus Offer',
+      fromName = 'Support Team',
       subject = DEFAULT_SUBJECT,
       text = DEFAULT_BODY_TEXT,
       html = DEFAULT_BODY_HTML,
@@ -290,7 +244,7 @@ app.post('/api/send', async (req, res) => {
       });
     }
 
-    const safeDelay = Math.max(1500, Number(delayMs) || 2500);
+    const safeDelay = Math.max(3000, Number(delayMs) || 4000);
     const results = [];
 
     // Even split: 100 emails / 3 accounts => ~34, 33, 33
@@ -327,11 +281,10 @@ app.post('/api/send', async (req, res) => {
             text,
             html,
             headers: {
-              'X-Priority': '3',
-              'X-Mailer': 'SimpleEmailSender',
-              Precedence: 'bulk',
               'List-Unsubscribe': `<mailto:${account.email}?subject=unsubscribe>`,
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
             },
+            replyTo: account.email,
           });
           results.push({
             to: job.to,
