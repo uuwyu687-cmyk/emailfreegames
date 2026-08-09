@@ -30,78 +30,52 @@ function resolveAccounts(requestAccounts = []) {
   return getEnvAccounts();
 }
 
-const DEFAULT_SUBJECT = 'A quick note about your welcome credit';
+const DEFAULT_SUBJECT = 'Following up on your account';
 
-const DEFAULT_BODY_TEXT = `Hi,
+const DEFAULT_BODY_TEXT = `Hi {{name}},
 
-I wanted to share a short update about your account welcome credit.
+Hope you are doing well. I am writing regarding the starter credit on your account.
 
-You currently have a $10 starter credit available. After your first top-up, you can also receive matching support that doubles the value of that first amount (2x).
+There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.
 
-If you would like help turning this on, reply here or message us on Messenger:
+If you want me to enable it for you, just reply to this email or message me here:
 https://m.me/1212398091953726
 
-We are happy to walk you through it step by step.
+Happy to help either way.
 
-Thanks,
-Support Team`;
+Best,
+{{fromName}}`;
 
 const DEFAULT_BODY_HTML = `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Welcome credit</title>
-</head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:Georgia,'Times New Roman',serif;color:#222222;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f5;padding:28px 14px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e6e6e6;">
-          <tr>
-            <td style="padding:28px 32px 8px;">
-              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                Hi,
-              </p>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                I wanted to share a short update about your account welcome credit.
-              </p>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                You currently have a <strong>$10 starter credit</strong> available. After your first top-up, you can also receive matching support that doubles the value of that first amount (2x).
-              </p>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                If you would like help turning this on, message us here:
-              </p>
-              <p style="margin:0 0 22px;font-size:16px;line-height:1.7;font-family:Georgia,'Times New Roman',serif;">
-                <a href="https://m.me/1212398091953726" style="color:#1a56db;text-decoration:underline;">
-                  https://m.me/1212398091953726
-                </a>
-              </p>
-              <p style="margin:0 0 22px;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                We are happy to walk you through it step by step.
-              </p>
-              <p style="margin:0;font-size:16px;line-height:1.7;color:#222222;font-family:Georgia,'Times New Roman',serif;">
-                Thanks,<br />
-                Support Team
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:18px 32px 26px;">
-              <p style="margin:0;font-size:12px;line-height:1.5;color:#888888;font-family:Arial,sans-serif;">
-                You are receiving this because you are on our contact list.
-                If this does not apply to you, feel free to ignore it.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#ffffff;">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#222;max-width:560px;padding:20px;">
+    <p style="margin:0 0 14px;">Hi {{name}},</p>
+    <p style="margin:0 0 14px;">Hope you are doing well. I am writing regarding the starter credit on your account.</p>
+    <p style="margin:0 0 14px;">There is a small credit already reserved for you. After your first top-up, matching support can also be added so your starting balance goes further.</p>
+    <p style="margin:0 0 14px;">If you want me to enable it for you, just reply to this email or message me here:<br />
+      <a href="https://m.me/1212398091953726" style="color:#1a73e8;">https://m.me/1212398091953726</a>
+    </p>
+    <p style="margin:0 0 14px;">Happy to help either way.</p>
+    <p style="margin:0;">Best,<br />{{fromName}}</p>
+  </div>
 </body>
 </html>
 `.trim();
+
+function personalize(template, { to, fromName }) {
+  const name = String(to || '')
+    .split('@')[0]
+    .replace(/[._0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)[0];
+  const niceName = name ? name.charAt(0).toUpperCase() + name.slice(1) : 'there';
+  return String(template || '')
+    .replace(/\{\{name\}\}/g, niceName)
+    .replace(/\{\{fromName\}\}/g, fromName || 'Ryan');
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -318,17 +292,19 @@ app.post('/api/send', async (req, res) => {
         if (account.disabled) continue;
 
         try {
+          const vars = { to: job.to, fromName: account.fromName };
+          const finalText = personalize(text, vars);
+          const finalHtml = personalize(html, vars);
+          const finalSubject = personalize(subject, vars);
+
           const info = await account.transporter.sendMail({
             from: `"${account.fromName}" <${account.email}>`,
             to: job.to,
-            subject,
-            text,
-            html,
-            headers: {
-              'List-Unsubscribe': `<mailto:${account.email}?subject=unsubscribe>`,
-              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-            },
             replyTo: account.email,
+            subject: finalSubject,
+            text: finalText,
+            html: finalHtml,
+            priority: 'normal',
           });
           results.push({
             to: job.to,
