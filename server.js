@@ -36,64 +36,52 @@ const LINK = String(
   process.env.MESSAGE_LINK || 'https://m.me/1212398091953726'
 ).trim();
 
-// Natural subjects only — NEVER put links here.
-const DEFAULT_SUBJECT = 'The hard part after you start';
+// Natural subjects only — NEVER put links / messenger / promo words here.
+const DEFAULT_SUBJECT = 'Thought of you earlier';
 
 const SUBJECT_VARIANTS = [
-  'The hard part after you start',
-  'This is usually where people get stuck',
-  'A simpler way to continue',
-  'Quick note on what comes next',
-  'Made this easier for you',
+  'Thought of you earlier',
+  'Did my last note reach you?',
+  'Quick note when you have a minute',
+  'Wanted to reconnect',
+  'Following up from earlier',
+  'Are you around today?',
+  'One small thing',
+  'Hope this finds you well',
 ];
 
-// Point-style promo copy (Clipzy-style). Link ONLY in body.
+// Soft promo bodies — link ONLY in body text.
 const BODY_VARIANTS = [
   `Hi{{namePart}},
 
-The hard part is usually what comes next:
-→ Not knowing where to start
-→ Waiting on long back-and-forth
-→ Missing clear next steps
-→ Trying to figure it out alone
+Hope you are doing well. I wanted to reconnect and make this easier for both of us.
 
-We built a simpler way.
-One chat. Clear answers. Next step done before you overthink it.
+Whenever you are free, please message me on this chat and I will take it from there:
 
-Open here when you are free:
 {{link}}
+
+Thanks,
+{{fromName}}`,
+
+  `Hi{{namePart}},
+
+Just a short note. It is simpler to continue on chat instead of long emails.
+
+You can reach me here:
+{{link}}
+
+I will reply as soon as I see your message.
 
 {{fromName}}`,
 
   `Hi{{namePart}},
 
-Most people get stuck here:
-→ Too many options, no clear path
-→ Emails that take forever
-→ No one guiding the next move
-→ Starting over every time
+I am available if you still want help with what we discussed.
 
-That workflow is what we remove.
-One message. One chat. Straight to the point.
-
-Continue here:
+Message me here when you can:
 {{link}}
 
-{{fromName}}`,
-
-  `Hi{{namePart}},
-
-After the interest fades, this is what slows people down:
-→ Unclear instructions
-→ Delayed replies
-→ Robot-sounding follow-ups
-→ Doing the same loop next week
-
-We made that simple.
-One recording of your question. One chat. Guidance + next steps — done.
-
-Start here:
-{{link}}
+Looking forward to hearing from you.
 
 {{fromName}}`,
 ];
@@ -142,7 +130,7 @@ function pickSubject(baseSubject, vars) {
   const burnedSubject =
     /^hey\s+/i.test(raw) ||
     /messenger|m\.me|https?:\/\//i.test(raw) ||
-    /check this when free|finish what we started|quick question|got a minute|free \$|200%|bonus|continue on chat|better on messenger|Thought of you earlier/i.test(
+    /check this when free|finish what we started|quick question|got a minute|free \$|200%|bonus|continue on chat|better on messenger/i.test(
       raw
     );
 
