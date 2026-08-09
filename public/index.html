@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Sender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <main class="wrap">
+    <header class="hero">
+      <p class="brand">MailFlow</p>
+      <h1>Send emails from CSV</h1>
+      <p class="sub">Connect up to 3 Gmail accounts. CSV list auto-splits across them. If one fails, next takes over.</p>
+    </header>
+
+    <section class="panel">
+      <h2>1. Connect up to 3 Gmail accounts</h2>
+
+      <div class="account" data-acc="1">
+        <p class="acc-title">Account 1</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email1@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Daniel" /></label>
+      </div>
+
+      <div class="account" data-acc="2">
+        <p class="acc-title">Account 2</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email2@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Daniel" /></label>
+      </div>
+
+      <div class="account" data-acc="3">
+        <p class="acc-title">Account 3</p>
+        <div class="grid2">
+          <label>Gmail <input class="acc-email" type="email" placeholder="email3@gmail.com" /></label>
+          <label>App Password <input class="acc-pass" type="password" placeholder="xxxx xxxx xxxx xxxx" /></label>
+        </div>
+        <label>From Name <input class="acc-from" type="text" value="Daniel" /></label>
+      </div>
+
+      <div class="row">
+        <button id="btnTest" type="button" class="btn secondary">Test All Connections</button>
+        <span id="connStatus" class="status"></span>
+      </div>
+      <p class="hint">
+        100 emails + 3 accounts = roughly 34 / 33 / 33 split. Agar 1 account fail ho jaye to baaki emails next account se chalti hain.
+        Credentials bar bar na dalni hon to root pe <code>.env</code> banao (<code>.env.example</code> copy karke).
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>2. Upload CSV (emails only)</h2>
+      <label class="filebox">
+        <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" />
+        <span id="fileLabel">Choose CSV / TXT file</span>
+      </label>
+      <div class="row">
+        <button id="btnParse" type="button" class="btn secondary">Load Emails</button>
+        <span id="csvStatus" class="status"></span>
+      </div>
+      <textarea id="emailsBox" rows="8" placeholder="Emails will appear here after upload..."></textarea>
+      <p id="splitPreview" class="hint"></p>
+    </section>
+
+    <section class="panel">
+      <h2>3. Email Message</h2>
+      <label>
+        Subject
+        <input id="subject" type="text" />
+      </label>
+      <label>
+        Plain Text
+        <textarea id="textBody" rows="12"></textarea>
+      </label>
+      <label class="checkline">
+        <input id="textOnly" type="checkbox" checked />
+        Plain text only (inbox ke liye strongly recommended — HTML mat bhejo)
+      </label>
+      <details>
+        <summary>HTML body (optional, usually leave empty)</summary>
+        <textarea id="htmlBody" rows="8" placeholder="Leave empty for better inbox delivery"></textarea>
+      </details>
+      <div class="preview-box">
+        <p class="preview-title">Text preview</p>
+        <pre id="textPreview" class="text-preview"></pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>4. Send</h2>
+      <div class="grid2">
+        <label>
+          Delay between emails (ms)
+          <input id="delayMs" type="number" min="5000" step="1000" value="8000" />
+        </label>
+        <label>
+          Test send to (optional)
+          <input id="testTo" type="email" placeholder="your-test@gmail.com" />
+        </label>
+      </div>
+      <p class="hint">
+        Promo link message mein shamil hai (<code>m.me</code>). Soft wording use ho rahi hai — FREE/BONUS/$ words mat likhna.
+        Delay 8s+ rakho, din mein 20–30 se zyada mat bhejo. Agar Spam jaye to recipient <b>Not spam</b> dabaye.
+      </p>
+      <div class="row">
+        <button id="btnTestSend" type="button" class="btn secondary">Send Test Email</button>
+        <button id="btnSendAll" type="button" class="btn primary">Send to All (Split 3)</button>
+      </div>
+      <div id="progress" class="progress hidden"></div>
+      <pre id="log" class="log"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
