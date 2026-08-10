@@ -23,6 +23,11 @@
   background-size: cover;
 }
 
+.gate[hidden],
+#app[hidden] {
+  display: none !important;
+}
+
 .gate-card {
   width: min(380px, calc(100% - 32px));
   background: #fff;
@@ -87,6 +92,11 @@
 .pin input:focus {
   outline: none;
   border-color: var(--teal);
+}
+
+.gate-btn {
+  margin-top: 16px;
+  width: 100%;
 }
 
 .gate-err {

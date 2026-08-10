@@ -17,11 +17,12 @@
       <p class="gate-sub">SECURE ACCESS PORTAL</p>
       <p class="gate-ask">Enter 4-digit access key</p>
       <div class="pin" id="pin">
-        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" />
         <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
         <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
         <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
       </div>
+      <button type="button" id="gateBtn" class="btn primary gate-btn">Continue</button>
       <p id="gateErr" class="gate-err"></p>
       <p class="gate-foot">MailFlow · Authorized users only</p>
     </div>

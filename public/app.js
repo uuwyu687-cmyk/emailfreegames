@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const TOKEN_KEY = 'mf_token';
 
 const subjectEl = $('subject');
 const textEl = $('textBody');
@@ -12,6 +13,17 @@ const textOnlyEl = $('textOnly');
 const logEl = $('log');
 const progressEl = $('progress');
 const splitPreview = $('splitPreview');
+
+function getToken() {
+  return sessionStorage.getItem(TOKEN_KEY) || '';
+}
+
+function api(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  const tok = getToken();
+  if (tok) headers.Authorization = `Bearer ${tok}`;
+  return fetch(url, { credentials: 'include', ...options, headers });
+}
 
 function setStatus(el, msg, type = '') {
   el.textContent = msg;
@@ -78,7 +90,7 @@ function updateSplitPreview() {
 
 async function loadSavedAccounts() {
   try {
-    const res = await fetch('/api/saved-accounts');
+    const res = await api('/api/saved-accounts');
     const data = await res.json();
     if (!data.ok) return;
 
@@ -101,7 +113,7 @@ async function loadSavedAccounts() {
 }
 
 async function loadDefaults() {
-  const res = await fetch('/api/defaults');
+  const res = await api('/api/defaults');
   const data = await res.json();
   subjectEl.value = data.subject;
   textEl.value = data.text;
@@ -120,7 +132,7 @@ $('btnTest').addEventListener('click', async () => {
   }
   setStatus(status, 'Checking...');
   try {
-    const res = await fetch('/api/test-connection', {
+    const res = await api('/api/test-connection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accounts }),
@@ -173,7 +185,7 @@ $('btnParse').addEventListener('click', async () => {
 
       const fd = new FormData();
       fd.append('csv', file);
-      const res = await fetch('/api/parse-csv', { method: 'POST', body: fd });
+      const res = await api('/api/parse-csv', { method: 'POST', body: fd });
       const raw = await res.text();
       let data;
       try {
@@ -227,7 +239,7 @@ async function sendEmails({ testOnly }) {
   $('btnTestSend').disabled = true;
 
   try {
-    const res = await fetch('/api/send', {
+    const res = await api('/api/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -293,21 +305,30 @@ async function unlockApp() {
   await loadDefaults().catch((err) => log('Defaults load failed: ' + err.message));
 }
 
+function pinValue() {
+  return [...document.querySelectorAll('#pin input')].map((el) => el.value).join('');
+}
+
 async function tryLogin(key) {
-  const res = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ key }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!data.ok) {
-    $('gateErr').textContent = data.error || 'Invalid key';
-    document.querySelectorAll('#pin input').forEach((el) => (el.value = ''));
-    document.querySelector('#pin input')?.focus();
-    return;
+  $('gateErr').textContent = '';
+  try {
+    const res = await api('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!data.ok) {
+      $('gateErr').textContent = data.error || 'Invalid key';
+      document.querySelectorAll('#pin input').forEach((el) => (el.value = ''));
+      document.querySelector('#pin input')?.focus();
+      return;
+    }
+    if (data.token) sessionStorage.setItem(TOKEN_KEY, data.token);
+    await unlockApp();
+  } catch (err) {
+    $('gateErr').textContent = err.message || 'Login failed';
   }
-  await unlockApp();
 }
 
 function setupGate() {
@@ -316,12 +337,24 @@ function setupGate() {
     input.addEventListener('input', () => {
       input.value = input.value.replace(/\D/g, '').slice(0, 1);
       if (input.value && i < inputs.length - 1) inputs[i + 1].focus();
-      const key = inputs.map((el) => el.value).join('');
-      if (key.length === 4) tryLogin(key);
+      if (pinValue().length === 4) tryLogin(pinValue());
     });
     input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const key = pinValue();
+        if (key.length === 4) tryLogin(key);
+      }
       if (e.key === 'Backspace' && !input.value && i > 0) inputs[i - 1].focus();
     });
+  });
+  $('gateBtn')?.addEventListener('click', () => {
+    const key = pinValue();
+    if (key.length !== 4) {
+      $('gateErr').textContent = 'Enter 4-digit key';
+      return;
+    }
+    tryLogin(key);
   });
   inputs[0]?.focus();
 }
@@ -329,7 +362,10 @@ function setupGate() {
 (async () => {
   setupGate();
   try {
-    const res = await fetch('/api/auth', { credentials: 'include' });
+    const headers = {};
+    const tok = getToken();
+    if (tok) headers.Authorization = `Bearer ${tok}`;
+    const res = await api('/api/auth', { headers });
     const data = await res.json();
     if (data.ok) await unlockApp();
   } catch (_e) {}

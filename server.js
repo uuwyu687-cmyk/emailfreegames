@@ -9,10 +9,12 @@ const crypto = require('crypto');
 
 const app = express();
 const MAX_UPLOAD = 50 * 1024 * 1024;
-const ACCESS_KEY = String(process.env.ACCESS_KEY || '0912');
+const ACCESS_KEY = String(process.env.ACCESS_KEY || '0912')
+  .trim()
+  .replace(/^["']|["']$/g, '');
 const AUTH_SECRET = String(
   process.env.AUTH_SECRET || 'c3dea72a82e9901f7f7f1b40f03e88ddb916f00e400008757abac6d90814ec8c'
-);
+).trim();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD, fieldSize: MAX_UPLOAD },
@@ -33,7 +35,10 @@ function cookies(req) {
 }
 
 function isAuthed(req) {
-  return cookies(req).mf === authToken();
+  const tok = authToken();
+  const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  if (bearer && bearer === tok) return true;
+  return cookies(req).mf === tok;
 }
 
 app.use(cors({ origin: true, credentials: true }));
@@ -41,14 +46,17 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.post('/api/login', (req, res) => {
-  if (String(req.body?.key || '') !== ACCESS_KEY) {
+  const key = String(req.body?.key || '').trim();
+  if (key !== ACCESS_KEY) {
     return res.status(401).json({ ok: false, error: 'Invalid key' });
   }
+  const tok = authToken();
+  const secure = process.env.VERCEL ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
-    `mf=${authToken()}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`
+    `mf=${tok}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800${secure}`
   );
-  res.json({ ok: true });
+  res.json({ ok: true, token: tok });
 });
 
 app.get('/api/auth', (req, res) => {
@@ -536,6 +544,9 @@ app.post('/api/send', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => {
-  console.log(`Email sender running at http://localhost:${PORT}`);
-});
+module.exports = app;
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Email sender running at http://localhost:${PORT}`);
+  });
+}
