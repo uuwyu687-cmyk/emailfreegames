@@ -10,8 +10,24 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <div class="gate-logo">⚡</div>
+      <h1 class="gate-brand"><span>Mail</span>Flow</h1>
+      <p class="gate-sub">SECURE ACCESS PORTAL</p>
+      <p class="gate-ask">Enter 4-digit access key</p>
+      <div class="pin" id="pin">
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+        <input maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+      </div>
+      <p id="gateErr" class="gate-err"></p>
+      <p class="gate-foot">MailFlow · Authorized users only</p>
+    </div>
+  </div>
   <div class="bg"></div>
-  <main class="wrap">
+  <main class="wrap" id="app" hidden>
     <header class="hero">
       <p class="brand">MailFlow</p>
       <h1>Send emails from CSV</h1>
@@ -52,10 +68,7 @@
         <button id="btnTest" type="button" class="btn secondary">Test All Connections</button>
         <span id="connStatus" class="status"></span>
       </div>
-      <p class="hint">
-        100 emails + 3 accounts = roughly 34 / 33 / 33 split. Agar 1 account fail ho jaye to baaki emails next account se chalti hain.
-        Credentials bar bar na dalni hon to root pe <code>.env</code> banao (<code>.env.example</code> copy karke).
-      </p>
+      <p class="hint">Optional: save accounts in <code>.env</code></p>
     </section>
 
     <section class="panel">
@@ -84,11 +97,11 @@
       </label>
       <label class="checkline">
         <input id="textOnly" type="checkbox" checked />
-        Plain text only (inbox ke liye strongly recommended — HTML mat bhejo)
+        Plain text only
       </label>
       <details>
-        <summary>HTML body (optional, usually leave empty)</summary>
-        <textarea id="htmlBody" rows="8" placeholder="Leave empty for better inbox delivery"></textarea>
+        <summary>HTML body</summary>
+        <textarea id="htmlBody" rows="8"></textarea>
       </details>
       <div class="preview-box">
         <p class="preview-title">Text preview</p>
@@ -108,10 +121,7 @@
           <input id="testTo" type="email" placeholder="your-test@gmail.com" />
         </label>
       </div>
-      <p class="hint">
-        Promo link message mein shamil hai (<code>m.me</code>). Soft wording use ho rahi hai — FREE/BONUS/$ words mat likhna.
-        Delay 8s+ rakho, din mein 20–30 se zyada mat bhejo. Agar Spam jaye to recipient <b>Not spam</b> dabaye.
-      </p>
+      <p class="hint">Use delay between sends. Test before bulk.</p>
       <div class="row">
         <button id="btnTestSend" type="button" class="btn secondary">Send Test Email</button>
         <button id="btnSendAll" type="button" class="btn primary">Send to All (Split 3)</button>

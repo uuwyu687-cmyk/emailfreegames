@@ -65,7 +65,7 @@ function updateSplitPreview() {
     const count = base + (i < rem ? 1 : 0);
     return `${a.email}: ~${count}`;
   });
-  // round-robin split means nearly equal; show equal-ish
+
   const sizes = Array.from({ length: n }, (_, i) => {
     let c = 0;
     for (let j = i; j < emails.length; j += n) c++;
@@ -96,7 +96,7 @@ async function loadSavedAccounts() {
     }
     updateSplitPreview();
   } catch (_err) {
-    // ignore
+
   }
 }
 
@@ -142,6 +142,20 @@ $('csvFile').addEventListener('change', () => {
   $('fileLabel').textContent = file ? file.name : 'Choose CSV / TXT file';
 });
 
+function extractEmailsFromText(raw) {
+  const found = String(raw || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  return [...new Set(found.map((e) => e.trim().toLowerCase().replace(/,+$/, '')))];
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsText(file);
+  });
+}
+
 $('btnParse').addEventListener('click', async () => {
   const file = $('csvFile').files[0];
   const status = $('csvStatus');
@@ -151,13 +165,33 @@ $('btnParse').addEventListener('click', async () => {
   }
   setStatus(status, 'Parsing...');
   try {
-    const fd = new FormData();
-    fd.append('csv', file);
-    const res = await fetch('/api/parse-csv', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Parse failed');
-    emailsBox.value = data.emails.join('\n');
-    setStatus(status, `${data.count} unique emails loaded`, 'ok');
+
+    const text = await readFileAsText(file);
+    let emails = extractEmailsFromText(text);
+
+    if (!emails.length) {
+
+      const fd = new FormData();
+      fd.append('csv', file);
+      const res = await fetch('/api/parse-csv', { method: 'POST', body: fd });
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (_e) {
+        throw new Error(
+          /entity too large|request entity/i.test(raw)
+            ? 'File too large for server. Use a smaller CSV or paste emails in the box.'
+            : `Server error: ${raw.slice(0, 80)}`
+        );
+      }
+      if (!data.ok) throw new Error(data.error || 'Parse failed');
+      emails = data.emails || [];
+    }
+
+    if (!emails.length) throw new Error('No valid emails found in file');
+    emailsBox.value = emails.join('\n');
+    setStatus(status, `${emails.length} unique emails loaded`, 'ok');
     updateSplitPreview();
   } catch (err) {
     setStatus(status, err.message, 'bad');
@@ -253,6 +287,50 @@ $('btnSendAll').addEventListener('click', () => {
   sendEmails({ testOnly: false });
 });
 
-loadDefaults().catch((err) => {
-  log('Defaults load failed: ' + err.message);
-});
+async function unlockApp() {
+  $('gate').hidden = true;
+  $('app').hidden = false;
+  await loadDefaults().catch((err) => log('Defaults load failed: ' + err.message));
+}
+
+async function tryLogin(key) {
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ key }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) {
+    $('gateErr').textContent = data.error || 'Invalid key';
+    document.querySelectorAll('#pin input').forEach((el) => (el.value = ''));
+    document.querySelector('#pin input')?.focus();
+    return;
+  }
+  await unlockApp();
+}
+
+function setupGate() {
+  const inputs = [...document.querySelectorAll('#pin input')];
+  inputs.forEach((input, i) => {
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/\D/g, '').slice(0, 1);
+      if (input.value && i < inputs.length - 1) inputs[i + 1].focus();
+      const key = inputs.map((el) => el.value).join('');
+      if (key.length === 4) tryLogin(key);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !input.value && i > 0) inputs[i - 1].focus();
+    });
+  });
+  inputs[0]?.focus();
+}
+
+(async () => {
+  setupGate();
+  try {
+    const res = await fetch('/api/auth', { credentials: 'include' });
+    const data = await res.json();
+    if (data.ok) await unlockApp();
+  } catch (_e) {}
+})();

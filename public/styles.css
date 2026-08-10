@@ -8,6 +8,98 @@
   --ok: #0f7a45;
   --bad: #b42318;
   --shadow: 0 18px 50px rgba(18, 28, 55, 0.12);
+  --orange: #f97316;
+  --teal: #0f766e;
+}
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(120deg, #ffd7b8 0%, #e8f4ff 45%, #c8ebe6 100%);
+  background-size: cover;
+}
+
+.gate-card {
+  width: min(380px, calc(100% - 32px));
+  background: #fff;
+  border-radius: 22px;
+  padding: 36px 28px 22px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(20, 40, 60, 0.14);
+}
+
+.gate-logo {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #fff4e8;
+  font-size: 22px;
+}
+
+.gate-brand {
+  margin: 0;
+  font-family: Syne, sans-serif;
+  font-size: 2rem;
+  letter-spacing: -0.03em;
+}
+
+.gate-brand span { color: var(--orange); }
+.gate-brand { color: var(--teal); }
+
+.gate-sub {
+  margin: 6px 0 22px;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.gate-ask {
+  margin: 0 0 14px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.pin {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.pin input {
+  width: 52px;
+  height: 56px;
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  border: 1.5px solid #dbe3ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.pin input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+.gate-err {
+  min-height: 20px;
+  margin: 12px 0 0;
+  color: var(--bad);
+  font-size: 0.85rem;
+}
+
+.gate-foot {
+  margin: 18px 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
 }
 
 * { box-sizing: border-box; }

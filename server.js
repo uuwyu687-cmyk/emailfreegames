@@ -5,12 +5,60 @@ const cors = require('cors');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const MAX_UPLOAD = 50 * 1024 * 1024;
+const ACCESS_KEY = String(process.env.ACCESS_KEY || '0912');
+const AUTH_SECRET = String(process.env.AUTH_SECRET || 'mailflow-auth');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD, fieldSize: MAX_UPLOAD },
+});
 
-app.use(cors());
-app.use(express.json({ limit: '2mb' }));
+function authToken() {
+  return crypto.createHmac('sha256', AUTH_SECRET).update(ACCESS_KEY).digest('hex');
+}
+
+function cookies(req) {
+  return Object.fromEntries(
+    String(req.headers.cookie || '')
+      .split(';')
+      .map((p) => p.trim().split('='))
+      .filter((p) => p[0])
+      .map(([k, ...v]) => [k, decodeURIComponent(v.join('='))])
+  );
+}
+
+function isAuthed(req) {
+  return cookies(req).mf === authToken();
+}
+
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.post('/api/login', (req, res) => {
+  if (String(req.body?.key || '') !== ACCESS_KEY) {
+    return res.status(401).json({ ok: false, error: 'Invalid key' });
+  }
+  res.setHeader(
+    'Set-Cookie',
+    `mf=${authToken()}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/auth', (req, res) => {
+  res.json({ ok: isAuthed(req) });
+});
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login' || req.path === '/auth') return next();
+  if (isAuthed(req)) return next();
+  return res.status(401).json({ ok: false, error: 'Unauthorized' });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 function getEnvAccounts() {
@@ -30,13 +78,13 @@ function resolveAccounts(requestAccounts = []) {
   return getEnvAccounts();
 }
 
-// Promo chat link (set in .env). Keep copy soft — hard "bonus/free/$" words increase Spam.
+
 const ALLOW_LINKS = String(process.env.ALLOW_LINKS || 'true').toLowerCase() !== 'false';
 const LINK = String(
   process.env.MESSAGE_LINK || 'https://m.me/1212398091953726'
 ).trim();
 
-// Natural subjects only — NEVER put links / messenger / promo words here.
+
 const DEFAULT_SUBJECT = 'Thought of you earlier';
 
 const SUBJECT_VARIANTS = [
@@ -50,7 +98,7 @@ const SUBJECT_VARIANTS = [
   'Hope this finds you well',
 ];
 
-// Soft promo bodies — link ONLY in body text.
+
 const BODY_VARIANTS = [
   `Hi{{namePart}},
 
@@ -88,7 +136,7 @@ Looking forward to hearing from you.
 
 const DEFAULT_BODY_TEXT = BODY_VARIANTS[0];
 
-// Kept for optional use; plain-text-only is default for better inbox placement.
+
 const DEFAULT_BODY_HTML = '';
 
 function cleanFromName(name, email) {
@@ -101,7 +149,7 @@ function cleanFromName(name, email) {
 function recipientFirstName(to) {
   const raw = String(to || '').split('@')[0] || '';
   const name = raw.replace(/[._0-9]+/g, ' ').trim().split(/\s+/)[0] || '';
-  // Skip gamer/spammy local-parts — they look automated
+
   if (!name || name.length < 2 || name.length > 10) return '';
   if (/pubg|free|game|hack|bonus|win|money|xxx|admin|test/i.test(name)) return '';
   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
@@ -129,7 +177,7 @@ function pickSubject(baseSubject, vars) {
   const raw = String(baseSubject || '').trim();
   const burnedSubject =
     /^hey\s+/i.test(raw) ||
-    /messenger|m\.me|https?:\/\//i.test(raw) ||
+    /messenger|m\.me|https?:/i.test(raw) ||
     /check this when free|finish what we started|quick question|got a minute|free \$|200%|bonus|continue on chat|better on messenger/i.test(
       raw
     );
@@ -141,7 +189,7 @@ function pickSubject(baseSubject, vars) {
     subject = fillVars(SUBJECT_VARIANTS[Math.floor(Math.random() * SUBJECT_VARIANTS.length)], vars);
   }
 
-  // Hard guarantee: subject never contains a link
+
   subject = stripUrls(subject);
   if (!subject) subject = DEFAULT_SUBJECT;
   return subject;
@@ -279,17 +327,28 @@ app.post('/api/test-connection', async (req, res) => {
   }
 });
 
-app.post('/api/parse-csv', upload.single('csv'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: 'CSV file required' });
+app.post('/api/parse-csv', (req, res) => {
+  upload.single('csv')(req, res, (err) => {
+    if (err) {
+      const tooLarge = err.code === 'LIMIT_FILE_SIZE' || /large|entity/i.test(err.message || '');
+      return res.status(tooLarge ? 413 : 400).json({
+        ok: false,
+        error: tooLarge
+          ? 'CSV file too large (max 50MB). Paste emails in the box instead, or split the file.'
+          : err.message || 'Upload failed',
+      });
     }
-    const text = req.file.buffer.toString('utf8');
-    const emails = extractEmails(text);
-    res.json({ ok: true, count: emails.length, emails });
-  } catch (err) {
-    res.status(400).json({ ok: false, error: err.message || 'Failed to parse CSV' });
-  }
+    try {
+      if (!req.file) {
+        return res.status(400).json({ ok: false, error: 'CSV file required' });
+      }
+      const text = req.file.buffer.toString('utf8');
+      const emails = extractEmails(text);
+      res.json({ ok: true, count: emails.length, emails });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message || 'Failed to parse CSV' });
+    }
+  });
 });
 
 app.post('/api/send', async (req, res) => {
@@ -329,7 +388,7 @@ app.post('/api/send', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'No valid emails found' });
     }
 
-    // Verify all accounts; keep only working ones
+
     const ready = [];
     const accountStatus = [];
     for (const acc of accountList) {
@@ -359,14 +418,14 @@ app.post('/api/send', async (req, res) => {
     const useTextOnly = textOnly !== false;
     const results = [];
 
-    // Even split: 100 emails / 3 accounts => ~34, 33, 33
+
     const buckets = splitEvenly(recipients, ready.length);
     const splitPlan = buckets.map((list, i) => ({
       email: ready[i].email,
       assigned: list.length,
     }));
 
-    // Flatten with preferred account; failover to next working account on hard errors
+
     const jobs = [];
     buckets.forEach((list, accountIndex) => {
       list.forEach((to) => jobs.push({ to, preferred: accountIndex }));
@@ -400,7 +459,7 @@ app.post('/api/send', async (req, res) => {
             priority: 'normal',
           };
 
-          // Plain text only lands in inbox more often than HTML promo templates.
+
           if (!useTextOnly && html && String(html).trim()) {
             mail.html = fillVars(html, vars);
           }
@@ -415,7 +474,7 @@ app.post('/api/send', async (req, res) => {
             failover: idx !== job.preferred,
           });
           delivered = true;
-          // Random jitter so sends look less automated
+
           const jitter = 1000 + Math.floor(Math.random() * 4000);
           await sleep(safeDelay + jitter);
           break;
@@ -429,11 +488,11 @@ app.post('/api/send', async (req, res) => {
 
           if (hardFail) {
             account.disabled = true;
-            // try next account for this same recipient
+
             continue;
           }
 
-          // soft fail for this recipient only
+
           results.push({
             to: job.to,
             ok: false,
