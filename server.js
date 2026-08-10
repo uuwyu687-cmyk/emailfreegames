@@ -10,7 +10,9 @@ const crypto = require('crypto');
 const app = express();
 const MAX_UPLOAD = 50 * 1024 * 1024;
 const ACCESS_KEY = String(process.env.ACCESS_KEY || '0912');
-const AUTH_SECRET = String(process.env.AUTH_SECRET || 'mailflow-auth');
+const AUTH_SECRET = String(
+  process.env.AUTH_SECRET || 'c3dea72a82e9901f7f7f1b40f03e88ddb916f00e400008757abac6d90814ec8c'
+);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD, fieldSize: MAX_UPLOAD },

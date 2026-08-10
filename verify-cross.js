@@ -1,7 +1,4 @@
-/**
- * Send from EMAIL_1 -> EMAIL_2 and check if it landed in INBOX or Spam.
- * Run: node verify-cross.js
- */
+
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 const { ImapFlow } = require('imapflow');
