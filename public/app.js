@@ -135,12 +135,16 @@ $('btnTest').addEventListener('click', async () => {
     const res = await api('/api/test-connection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accounts }),
+      body: JSON.stringify({ accounts, useEnvOnly: true }),
     });
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error || data.message || 'Failed');
+    if (!data.ok && !data.results?.length) throw new Error(data.error || data.message || 'Failed');
     const detail = (data.results || [])
-      .map((r) => (r.ok ? `${r.email}: OK` : `${r.email}: FAIL (${r.error || 'error'})`))
+      .map((r) =>
+        r.ok
+          ? `${r.email}: OK`
+          : `${r.email}: FAIL (${r.error || 'error'}) [passLen=${r.passLen || '?'}]`
+      )
       .join(' | ');
     setStatus(status, `${data.message} — ${detail}`, data.connected === data.total ? 'ok' : 'bad');
     updateSplitPreview();

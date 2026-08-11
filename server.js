@@ -83,9 +83,32 @@ function getEnvAccounts() {
 }
 
 function resolveAccounts(requestAccounts = []) {
+  const envAccounts = getEnvAccounts();
   const fromRequest = normalizeAccounts(requestAccounts);
-  if (fromRequest.length) return fromRequest;
-  return getEnvAccounts();
+  if (!fromRequest.length) return envAccounts;
+
+  const envByEmail = new Map(envAccounts.map((a) => [a.email, a]));
+  return fromRequest.map((acc, idx) => {
+    const env = envByEmail.get(acc.email);
+    if (!env) return { ...acc, id: acc.id || idx + 1, passwordSource: 'ui' };
+    return {
+      id: acc.id || idx + 1,
+      email: env.email,
+      appPassword: env.appPassword,
+      fromName: acc.fromName || env.fromName,
+      passwordSource: 'env',
+    };
+  });
+}
+
+function authUserVariants(email) {
+  const e = String(email || '').trim().toLowerCase();
+  const out = [e];
+  const [local, domain] = e.split('@');
+  if (domain === 'gmail.com' && local && local.includes('.')) {
+    out.push(`${local.replace(/\./g, '')}@gmail.com`);
+  }
+  return [...new Set(out)];
 }
 
 
@@ -265,13 +288,13 @@ function isTransientSmtpError(err) {
   );
 }
 
-function buildTransport(account) {
+function buildTransport(account, user = account.email) {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
     secure: true,
     auth: {
-      user: account.email,
+      user,
       pass: account.appPassword,
     },
     connectionTimeout: 25000,
@@ -283,22 +306,28 @@ function buildTransport(account) {
 
 async function createTransporter(account) {
   let lastErr;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const transporter = buildTransport(account);
-      await transporter.verify();
-      return transporter;
-    } catch (err) {
-      lastErr = err;
-      if (!isTransientSmtpError(err) || attempt === 3) break;
-      await sleep(1200 * attempt);
+  const users = authUserVariants(account.email);
+  for (const user of users) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const transporter = buildTransport(account, user);
+        await transporter.verify();
+        return transporter;
+      } catch (err) {
+        lastErr = err;
+        if (/Invalid login|BadCredentials|Username and Password not accepted|EAUTH/i.test(String(err.message || ''))) {
+          break;
+        }
+        if (!isTransientSmtpError(err) || attempt === 3) break;
+        await sleep(1200 * attempt);
+      }
     }
   }
   throw lastErr || new Error('SMTP connection failed');
 }
 
 function makeSender(account) {
-  return buildTransport(account);
+  return buildTransport(account, authUserVariants(account.email)[0]);
 }
 
 function friendlySmtpError(err, account) {
@@ -357,7 +386,10 @@ app.get('/api/saved-accounts', (_req, res) => {
 
 app.post('/api/test-connection', async (req, res) => {
   try {
-    const accounts = resolveAccounts(req.body?.accounts || [req.body]);
+    const useEnvOnly = Boolean(req.body?.useEnvOnly);
+    const accounts = useEnvOnly
+      ? getEnvAccounts()
+      : resolveAccounts(req.body?.accounts || [req.body]);
     if (!accounts.length) {
       return res.status(400).json({
         ok: false,
@@ -370,13 +402,22 @@ app.post('/api/test-connection', async (req, res) => {
       const acc = accounts[i];
       try {
         await createTransporter(acc);
-        results.push({ id: acc.id, email: acc.email, ok: true, message: 'Connected' });
+        results.push({
+          id: acc.id,
+          email: acc.email,
+          ok: true,
+          message: 'Connected',
+          passwordSource: acc.passwordSource || (useEnvOnly ? 'env' : 'ui'),
+          passLen: (acc.appPassword || '').length,
+        });
       } catch (err) {
         results.push({
           id: acc.id,
           email: acc.email,
           ok: false,
           error: friendlySmtpError(err, acc),
+          passwordSource: acc.passwordSource || (useEnvOnly ? 'env' : 'ui'),
+          passLen: (acc.appPassword || '').length,
         });
       }
       if (i < accounts.length - 1) await sleep(2000);
