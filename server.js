@@ -75,8 +75,8 @@ function getEnvAccounts() {
   return [1, 2, 3]
     .map((n) => ({
       id: n,
-      email: String(process.env[`EMAIL_${n}`] || '').trim(),
-      appPassword: String(process.env[`APP_PASSWORD_${n}`] || '').replace(/\s+/g, ''),
+      email: String(process.env[`EMAIL_${n}`] || '').trim().toLowerCase(),
+      appPassword: cleanAppPassword(process.env[`APP_PASSWORD_${n}`]),
       fromName: String(process.env[`FROM_NAME_${n}`] || 'Daniel').trim() || 'Daniel',
     }))
     .filter((a) => a.email && a.appPassword);
@@ -236,27 +236,59 @@ function extractEmails(raw) {
   return [...new Set(cleaned)];
 }
 
+function cleanAppPassword(pass) {
+  return String(pass || '')
+    .replace(/\s+/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '');
+}
+
 function normalizeAccounts(accounts = []) {
   return (accounts || [])
     .map((a, idx) => ({
       id: idx + 1,
-      email: String(a.email || '').trim(),
-      appPassword: String(a.appPassword || '').replace(/\s+/g, ''),
+      email: String(a.email || '').trim().toLowerCase(),
+      appPassword: cleanAppPassword(a.appPassword),
       fromName: cleanFromName(a.fromName, a.email),
     }))
     .filter((a) => a.email && a.appPassword);
 }
 
-function createTransporter(account) {
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: account.email,
-      pass: account.appPassword,
-    },
-  });
+async function createTransporter(account) {
+  const auth = {
+    user: account.email,
+    pass: account.appPassword,
+  };
+  const attempts = [
+    { service: 'gmail', auth },
+    { host: 'smtp.gmail.com', port: 465, secure: true, auth },
+    { host: 'smtp.gmail.com', port: 587, secure: false, requireTLS: true, auth },
+  ];
+  let lastErr;
+  for (const cfg of attempts) {
+    try {
+      const transporter = nodemailer.createTransport(cfg);
+      await transporter.verify();
+      return transporter;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('SMTP connection failed');
+}
+
+function friendlySmtpError(err, account) {
+  const msg = String(err?.message || err || 'Connection failed');
+  if (/Invalid login|BadCredentials|Username and Password not accepted/i.test(msg)) {
+    const len = (account?.appPassword || '').length;
+    if (len !== 16) {
+      return `Wrong App Password for ${account.email}. Use Google 16-character App Password (not normal Gmail password). Got ${len} chars.`;
+    }
+    return `Google rejected login for ${account.email}. Create a NEW App Password: Google Account → Security → 2-Step Verification → App passwords.`;
+  }
+  if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(msg)) {
+    return `Network/SMTP blocked while connecting ${account.email}.`;
+  }
+  return msg;
 }
 
 function splitEvenly(items, parts) {
@@ -308,15 +340,14 @@ app.post('/api/test-connection', async (req, res) => {
     const results = [];
     for (const acc of accounts) {
       try {
-        const transporter = createTransporter(acc);
-        await transporter.verify();
+        await createTransporter(acc);
         results.push({ id: acc.id, email: acc.email, ok: true, message: 'Connected' });
       } catch (err) {
         results.push({
           id: acc.id,
           email: acc.email,
           ok: false,
-          error: err.message || 'Connection failed',
+          error: friendlySmtpError(err, acc),
         });
       }
     }
@@ -403,15 +434,14 @@ app.post('/api/send', async (req, res) => {
     const accountStatus = [];
     for (const acc of accountList) {
       try {
-        const transporter = createTransporter(acc);
-        await transporter.verify();
+        const transporter = await createTransporter(acc);
         ready.push({ ...acc, transporter });
         accountStatus.push({ email: acc.email, ok: true });
       } catch (err) {
         accountStatus.push({
           email: acc.email,
           ok: false,
-          error: err.message || 'Verify failed',
+          error: friendlySmtpError(err, acc),
         });
       }
     }

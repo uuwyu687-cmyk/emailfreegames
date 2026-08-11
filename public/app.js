@@ -140,9 +140,9 @@ $('btnTest').addEventListener('click', async () => {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || data.message || 'Failed');
     const detail = (data.results || [])
-      .map((r) => `${r.email}: ${r.ok ? 'OK' : 'FAIL'}`)
+      .map((r) => (r.ok ? `${r.email}: OK` : `${r.email}: FAIL (${r.error || 'error'})`))
       .join(' | ');
-    setStatus(status, `${data.message} — ${detail}`, 'ok');
+    setStatus(status, `${data.message} — ${detail}`, data.connected === data.total ? 'ok' : 'bad');
     updateSplitPreview();
   } catch (err) {
     setStatus(status, err.message, 'bad');
