@@ -253,42 +253,70 @@ function normalizeAccounts(accounts = []) {
     .filter((a) => a.email && a.appPassword);
 }
 
+function isTransientSmtpError(err) {
+  const msg = String(err?.message || err || '');
+  const code = Number(err?.responseCode || 0);
+  if (code === 421 || code === 454 || code === 452) return true;
+  if (/Invalid login|BadCredentials|Username and Password not accepted|EAUTH/i.test(msg)) {
+    return false;
+  }
+  return /ETIMEDOUT|ECONNRESET|ECONNECTION|ESOCKET|EPIPE|ENOTFOUND|Temporarily|try again|Too many|rate/i.test(
+    msg
+  );
+}
+
+function buildTransport(account) {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: account.email,
+      pass: account.appPassword,
+    },
+    connectionTimeout: 25000,
+    greetingTimeout: 25000,
+    socketTimeout: 60000,
+    tls: { rejectUnauthorized: true },
+  });
+}
+
 async function createTransporter(account) {
-  const auth = {
-    user: account.email,
-    pass: account.appPassword,
-  };
-  const attempts = [
-    { service: 'gmail', auth },
-    { host: 'smtp.gmail.com', port: 465, secure: true, auth },
-    { host: 'smtp.gmail.com', port: 587, secure: false, requireTLS: true, auth },
-  ];
   let lastErr;
-  for (const cfg of attempts) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const transporter = nodemailer.createTransport(cfg);
+      const transporter = buildTransport(account);
       await transporter.verify();
       return transporter;
     } catch (err) {
       lastErr = err;
+      if (!isTransientSmtpError(err) || attempt === 3) break;
+      await sleep(1200 * attempt);
     }
   }
   throw lastErr || new Error('SMTP connection failed');
 }
 
+function makeSender(account) {
+  return buildTransport(account);
+}
+
 function friendlySmtpError(err, account) {
   const msg = String(err?.message || err || 'Connection failed');
-  if (/Invalid login|BadCredentials|Username and Password not accepted/i.test(msg)) {
+  if (/Invalid login|BadCredentials|Username and Password not accepted|EAUTH/i.test(msg)) {
     const len = (account?.appPassword || '').length;
     if (len !== 16) {
-      return `Wrong App Password for ${account.email}. Use Google 16-character App Password (not normal Gmail password). Got ${len} chars.`;
+      return `Wrong App Password for ${account.email}. Need 16-character Google App Password (not normal password). Got ${len} chars.`;
     }
-    return `Google rejected login for ${account.email}. Create a NEW App Password: Google Account → Security → 2-Step Verification → App passwords.`;
+    return `Google rejected ${account.email}. App Password expire/revoke ho sakta hai — naya App Password banao aur Vercel env update karo.`;
+  }
+  if (isTransientSmtpError(err)) {
+    return `Temporary Gmail/network issue for ${account.email}. Wait 1 min and test again.`;
   }
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND/i.test(msg)) {
-    return `Network/SMTP blocked while connecting ${account.email}.`;
+    return `Network/SMTP issue for ${account.email}.`;
   }
-  return msg;
+  return msg.split('\n')[0];
 }
 
 function splitEvenly(items, parts) {
@@ -338,7 +366,8 @@ app.post('/api/test-connection', async (req, res) => {
     }
 
     const results = [];
-    for (const acc of accounts) {
+    for (let i = 0; i < accounts.length; i++) {
+      const acc = accounts[i];
       try {
         await createTransporter(acc);
         results.push({ id: acc.id, email: acc.email, ok: true, message: 'Connected' });
@@ -350,6 +379,7 @@ app.post('/api/test-connection', async (req, res) => {
           error: friendlySmtpError(err, acc),
         });
       }
+      if (i < accounts.length - 1) await sleep(2000);
     }
 
     const okCount = results.filter((r) => r.ok).length;
@@ -432,18 +462,29 @@ app.post('/api/send', async (req, res) => {
 
     const ready = [];
     const accountStatus = [];
-    for (const acc of accountList) {
+    for (let i = 0; i < accountList.length; i++) {
+      const acc = accountList[i];
       try {
         const transporter = await createTransporter(acc);
         ready.push({ ...acc, transporter });
         accountStatus.push({ email: acc.email, ok: true });
       } catch (err) {
-        accountStatus.push({
-          email: acc.email,
-          ok: false,
-          error: friendlySmtpError(err, acc),
-        });
+        if (isTransientSmtpError(err)) {
+          ready.push({ ...acc, transporter: makeSender(acc), soft: true });
+          accountStatus.push({
+            email: acc.email,
+            ok: true,
+            warning: 'Verify flaky, will try while sending',
+          });
+        } else {
+          accountStatus.push({
+            email: acc.email,
+            ok: false,
+            error: friendlySmtpError(err, acc),
+          });
+        }
       }
+      if (i < accountList.length - 1) await sleep(1500);
     }
 
     if (!ready.length) {
